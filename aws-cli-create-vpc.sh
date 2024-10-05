@@ -1,65 +1,68 @@
 #!/bin/bash
 #******************************************************************************
-#    AWS VPC Creation Shell Script
+#    Script de Shell para la Creación de una VPC en AWS
 #******************************************************************************
 #
-# SYNOPSIS
-#    Automates the creation of a custom IPv4 VPC, having both a public and a
-#    private subnet, and a NAT gateway.
+# SINOPSIS
+#    Automatiza la creación de una VPC personalizada con IPv4, que incluye tanto
+#    una subred pública como una subred privada, y una puerta de enlace NAT.
 #
-# DESCRIPTION
-#    This shell script leverages the AWS Command Line Interface (AWS CLI) to
-#    automatically create a custom VPC.  The script assumes the AWS CLI is
-#    installed and configured with the necessary security credentials.
-#
-#==============================================================================
-#
-# NOTES
-#   VERSION:   0.1.0
-#   LASTEDIT:  03/18/2017
-#   AUTHOR:    Joe Arauzo
-#   EMAIL:     joe@arauzo.net
-#   REVISIONS:
-#       0.1.0  03/18/2017 - first release
-#       0.0.1  02/25/2017 - work in progress
+# DESCRIPCIÓN
+#    Este script de shell utiliza la Interfaz de Línea de Comandos de AWS (AWS CLI)
+#    para crear automáticamente una VPC personalizada. El script asume que la AWS CLI
+#    está instalada y configurada con las credenciales de seguridad necesarias.
 #
 #==============================================================================
-#   MODIFY THE SETTINGS BELOW
-#==============================================================================
 #
-AWS_REGION="us-west-1"
-VPC_NAME="My VPC"
+# NOTAS
+#   VERSIÓN:   0.2.0
+#   ÚLTIMA EDICIÓN:  05/10/2024
+#   AUTORES:
+#       - Joe Arauzo (joe@arauzo.net)
+#       - Jorge Luis Pérez Canto (george.jlpc@gmail.com)
+#
+#   REVISIONES:
+#       0.2.0  05/10/2024 - mejoras y modificaciones por Jorge Pérez
+#       0.1.0  18/03/2017 - primera versión por Joe Arauzo
+#       0.0.1  25/02/2017 - trabajo en progreso por Joe Arauzo
+#
+#==============================================================================
+#   MODIFICA LOS AJUSTES A CONTINUACIÓN
+#==============================================================================
+
+AWS_REGION="us-east-1"
+VPC_NAME="Mi VPC Jorge Pérez"
 VPC_CIDR="10.0.0.0/16"
 SUBNET_PUBLIC_CIDR="10.0.1.0/24"
-SUBNET_PUBLIC_AZ="us-west-1a"
-SUBNET_PUBLIC_NAME="10.0.1.0 - us-west-1a"
+SUBNET_PUBLIC_AZ="us-east-1a"
+SUBNET_PUBLIC_NAME="10.0.1.0 - us-east-1a"
 SUBNET_PRIVATE_CIDR="10.0.2.0/24"
-SUBNET_PRIVATE_AZ="us-west-1c"
-SUBNET_PRIVATE_NAME="10.0.2.0 - us-west-1b"
+SUBNET_PRIVATE_AZ="us-east-1b"
+SUBNET_PRIVATE_NAME="10.0.2.0 - us-east-1b"
 CHECK_FREQUENCY=5
 #
 #==============================================================================
-#   DO NOT MODIFY CODE BELOW
+#   NO MODIFIQUES EL CÓDIGO A CONTINUACIÓN
 #==============================================================================
 #
-# Create VPC
-echo "Creating VPC in preferred region..."
+# Crear la VPC
+echo "Creando VPC en la región preferida..."
 VPC_ID=$(aws ec2 create-vpc \
   --cidr-block $VPC_CIDR \
   --query 'Vpc.{VpcId:VpcId}' \
   --output text \
   --region $AWS_REGION)
-echo "  VPC ID '$VPC_ID' CREATED in '$AWS_REGION' region."
+echo "  VPC ID '$VPC_ID' CREADA en la región '$AWS_REGION'."
 
-# Add Name tag to VPC
+# Añadir etiqueta de nombre a la VPC
 aws ec2 create-tags \
   --resources $VPC_ID \
   --tags "Key=Name,Value=$VPC_NAME" \
   --region $AWS_REGION
-echo "  VPC ID '$VPC_ID' NAMED as '$VPC_NAME'."
+echo "  VPC ID '$VPC_ID' NOMBRADA como '$VPC_NAME'."
 
-# Create Public Subnet
-echo "Creating Public Subnet..."
+# Crear Subred Pública
+echo "Creando Subred Pública..."
 SUBNET_PUBLIC_ID=$(aws ec2 create-subnet \
   --vpc-id $VPC_ID \
   --cidr-block $SUBNET_PUBLIC_CIDR \
@@ -67,19 +70,18 @@ SUBNET_PUBLIC_ID=$(aws ec2 create-subnet \
   --query 'Subnet.{SubnetId:SubnetId}' \
   --output text \
   --region $AWS_REGION)
-echo "  Subnet ID '$SUBNET_PUBLIC_ID' CREATED in '$SUBNET_PUBLIC_AZ'" \
-  "Availability Zone."
+echo "  Subnet ID '$SUBNET_PUBLIC_ID' CREADA en la zona de disponibilidad" \
+  "'$SUBNET_PUBLIC_AZ'."
 
-# Add Name tag to Public Subnet
+# Añadir etiqueta de nombre a la Subred Pública
 aws ec2 create-tags \
   --resources $SUBNET_PUBLIC_ID \
   --tags "Key=Name,Value=$SUBNET_PUBLIC_NAME" \
   --region $AWS_REGION
-echo "  Subnet ID '$SUBNET_PUBLIC_ID' NAMED as" \
-  "'$SUBNET_PUBLIC_NAME'."
+echo "  Subnet ID '$SUBNET_PUBLIC_ID' NOMBRADA como '$SUBNET_PUBLIC_NAME'."
 
-# Create Private Subnet
-echo "Creating Private Subnet..."
+# Crear Subred Privada
+echo "Creando Subred Privada..."
 SUBNET_PRIVATE_ID=$(aws ec2 create-subnet \
   --vpc-id $VPC_ID \
   --cidr-block $SUBNET_PRIVATE_CIDR \
@@ -87,87 +89,84 @@ SUBNET_PRIVATE_ID=$(aws ec2 create-subnet \
   --query 'Subnet.{SubnetId:SubnetId}' \
   --output text \
   --region $AWS_REGION)
-echo "  Subnet ID '$SUBNET_PRIVATE_ID' CREATED in '$SUBNET_PRIVATE_AZ'" \
-  "Availability Zone."
+echo "  Subnet ID '$SUBNET_PRIVATE_ID' CREADA en la zona de disponibilidad" \
+  "'$SUBNET_PRIVATE_AZ'."
 
-# Add Name tag to Private Subnet
+# Añadir etiqueta de nombre a la Subred Privada
 aws ec2 create-tags \
   --resources $SUBNET_PRIVATE_ID \
   --tags "Key=Name,Value=$SUBNET_PRIVATE_NAME" \
   --region $AWS_REGION
-echo "  Subnet ID '$SUBNET_PRIVATE_ID' NAMED as '$SUBNET_PRIVATE_NAME'."
+echo "  Subnet ID '$SUBNET_PRIVATE_ID' NOMBRADA como '$SUBNET_PRIVATE_NAME'."
 
-# Create Internet gateway
-echo "Creating Internet Gateway..."
+# Crear la puerta de enlace de Internet
+echo "Creando Puerta de Enlace de Internet..."
 IGW_ID=$(aws ec2 create-internet-gateway \
   --query 'InternetGateway.{InternetGatewayId:InternetGatewayId}' \
   --output text \
   --region $AWS_REGION)
-echo "  Internet Gateway ID '$IGW_ID' CREATED."
+echo "  Puerta de Enlace de Internet ID '$IGW_ID' CREADA."
 
-# Attach Internet gateway to your VPC
+# Asociar la puerta de enlace de Internet a tu VPC
 aws ec2 attach-internet-gateway \
   --vpc-id $VPC_ID \
   --internet-gateway-id $IGW_ID \
   --region $AWS_REGION
-echo "  Internet Gateway ID '$IGW_ID' ATTACHED to VPC ID '$VPC_ID'."
+echo "  Puerta de Enlace de Internet ID '$IGW_ID' ASOCIADA a la VPC ID '$VPC_ID'."
 
-# Create Route Table
-echo "Creating Route Table..."
+# Crear Tabla de Rutas
+echo "Creando Tabla de Rutas..."
 ROUTE_TABLE_ID=$(aws ec2 create-route-table \
   --vpc-id $VPC_ID \
   --query 'RouteTable.{RouteTableId:RouteTableId}' \
   --output text \
   --region $AWS_REGION)
-echo "  Route Table ID '$ROUTE_TABLE_ID' CREATED."
+echo "  Tabla de Rutas ID '$ROUTE_TABLE_ID' CREADA."
 
-# Create route to Internet Gateway
+# Crear ruta hacia la Puerta de Enlace de Internet
 RESULT=$(aws ec2 create-route \
   --route-table-id $ROUTE_TABLE_ID \
   --destination-cidr-block 0.0.0.0/0 \
   --gateway-id $IGW_ID \
   --region $AWS_REGION)
-echo "  Route to '0.0.0.0/0' via Internet Gateway ID '$IGW_ID' ADDED to" \
-  "Route Table ID '$ROUTE_TABLE_ID'."
+echo "  Ruta hacia '0.0.0.0/0' a través de la Puerta de Enlace de Internet ID '$IGW_ID' AÑADIDA a la Tabla de Rutas ID '$ROUTE_TABLE_ID'."
 
-# Associate Public Subnet with Route Table
+# Asociar Subred Pública con la Tabla de Rutas
 RESULT=$(aws ec2 associate-route-table  \
   --subnet-id $SUBNET_PUBLIC_ID \
   --route-table-id $ROUTE_TABLE_ID \
   --region $AWS_REGION)
-echo "  Public Subnet ID '$SUBNET_PUBLIC_ID' ASSOCIATED with Route Table ID" \
-  "'$ROUTE_TABLE_ID'."
+echo "  Subnet Pública ID '$SUBNET_PUBLIC_ID' ASOCIADA con la Tabla de Rutas ID '$ROUTE_TABLE_ID'."
 
-# Enable Auto-assign Public IP on Public Subnet
+# Habilitar asignación automática de IP pública en la Subnet Pública
 aws ec2 modify-subnet-attribute \
   --subnet-id $SUBNET_PUBLIC_ID \
   --map-public-ip-on-launch \
   --region $AWS_REGION
-echo "  'Auto-assign Public IP' ENABLED on Public Subnet ID" \
-  "'$SUBNET_PUBLIC_ID'."
+echo "  Asignación automática de IP pública HABILITADA en la Subnet Pública ID '$SUBNET_PUBLIC_ID'."
 
-# Allocate Elastic IP Address for NAT Gateway
-echo "Creating NAT Gateway..."
+# Asignar dirección IP elástica para la Puerta de Enlace NAT
+echo "Creando Puerta de Enlace NAT..."
 EIP_ALLOC_ID=$(aws ec2 allocate-address \
   --domain vpc \
   --query '{AllocationId:AllocationId}' \
   --output text \
   --region $AWS_REGION)
-echo "  Elastic IP address ID '$EIP_ALLOC_ID' ALLOCATED."
+echo "  Dirección IP elástica ID '$EIP_ALLOC_ID' ASIGNADA."
 
-# Create NAT Gateway
+# Crear Puerta de Enlace NAT
 NAT_GW_ID=$(aws ec2 create-nat-gateway \
   --subnet-id $SUBNET_PUBLIC_ID \
   --allocation-id $EIP_ALLOC_ID \
   --query 'NatGateway.{NatGatewayId:NatGatewayId}' \
   --output text \
   --region $AWS_REGION)
-FORMATTED_MSG="Creating NAT Gateway ID '$NAT_GW_ID' and waiting for it to "
-FORMATTED_MSG+="become available.\n    Please BE PATIENT as this can take some "
-FORMATTED_MSG+="time to complete.\n    ......\n"
+FORMATTED_MSG="Creando la Puerta de Enlace NAT ID '$NAT_GW_ID' y esperando a que"
+FORMATTED_MSG+=" esté disponible.\n    Por favor, SEA PACIENTE ya que esto puede"
+FORMATTED_MSG+=" tardar un poco en completarse.\n    ......\n"
 printf "  $FORMATTED_MSG"
-FORMATTED_MSG="STATUS: %s  -  %02dh:%02dm:%02ds elapsed while waiting for NAT "
-FORMATTED_MSG+="Gateway to become available..."
+FORMATTED_MSG="ESTADO: %s  -  %02dh:%02dm:%02ds transcurridos mientras se espera"
+FORMATTED_MSG+=" que la Puerta de Enlace NAT esté disponible..."
 SECONDS=0
 LAST_CHECK=0
 STATE='PENDING'
@@ -188,20 +187,19 @@ until [[ $STATE == 'AVAILABLE' ]]; do
   printf "    $STATUS_MSG\033[0K\r"
   sleep 1
 done
-printf "\n    ......\n  NAT Gateway ID '$NAT_GW_ID' is now AVAILABLE.\n"
+printf "\n    ......\n  Puerta de Enlace NAT ID '$NAT_GW_ID' está ahora DISPONIBLE.\n"
 
-# Create route to NAT Gateway
+# Crear ruta hacia la Puerta de Enlace NAT
 MAIN_ROUTE_TABLE_ID=$(aws ec2 describe-route-tables \
   --filters Name=vpc-id,Values=$VPC_ID Name=association.main,Values=true \
   --query 'RouteTables[*].{RouteTableId:RouteTableId}' \
   --output text \
   --region $AWS_REGION)
-echo "  Main Route Table ID is '$MAIN_ROUTE_TABLE_ID'."
+echo "  La Tabla de Rutas Principal es '$MAIN_ROUTE_TABLE_ID'."
 RESULT=$(aws ec2 create-route \
   --route-table-id $MAIN_ROUTE_TABLE_ID \
   --destination-cidr-block 0.0.0.0/0 \
   --gateway-id $NAT_GW_ID \
   --region $AWS_REGION)
-echo "  Route to '0.0.0.0/0' via NAT Gateway with ID '$NAT_GW_ID' ADDED to" \
-  "Route Table ID '$MAIN_ROUTE_TABLE_ID'."
-echo "COMPLETED"
+echo "  Ruta hacia '0.0.0.0/0' a través de la Puerta de Enlace NAT ID '$NAT_GW_ID' AÑADIDA a la Tabla de Rutas ID '$MAIN_ROUTE_TABLE_ID'."
+echo "COMPLETADO"
