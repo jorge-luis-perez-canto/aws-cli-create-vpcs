@@ -51,5 +51,4 @@ while IFS=": " read -r key value; do
         NAT_GW_ID) check_resource "NAT Gateway" "$value" "aws ec2 describe-nat-gateways --nat-gateway-ids $value --region $AWS_REGION" ;;
         MAIN_ROUTE_TABLE_ID) check_resource "Tabla de Rutas Principal" "$value" "aws ec2 describe-route-tables --route-table-ids $value --region $AWS_REGION" ;;
     esac
-    echo ""  # Asegurarse de agregar un salto de línea adicional después de cada bloque de comandos
 done < "$RESOURCE_FILE"
