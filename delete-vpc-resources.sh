@@ -30,7 +30,7 @@ function list_resources() {
     DESCRIPTION=$3
 
     echo -e "${YELLOW}Listando $DESCRIPTION en la región '${AWS_REGION}':${NC}"
-    aws ec2 $RESOURCE_TYPE --query "$QUERY" --output table --region $AWS_REGION
+    aws ec2 $RESOURCE_TYPE --query "$QUERY" --output table --region $AWS_REGION || echo -e "${RED}Error al listar $DESCRIPTION.${NC}"
 }
 
 # Verificación de existencia de recursos y listado de recursos si no se encuentra
@@ -44,11 +44,12 @@ function check_resource_exists() {
     
     if $COMMAND > /dev/null 2>&1; then
         echo -e "${GREEN}$RESOURCE_TYPE '$RESOURCE_ID' encontrado.${NC}"
+        return 0
     else
         echo -e "${RED}$RESOURCE_TYPE '$RESOURCE_ID' NO encontrado.${NC}"
         echo -e "${YELLOW}Listando los $RESOURCE_TYPE disponibles:${NC}"
         $LIST_COMMAND
-        exit 1
+        return 1
     fi
 }
 
@@ -124,81 +125,4 @@ function delete_route_table() {
     fi
 }
 
-# Desasociar y eliminar Puerta de Enlace de Internet
-function delete_internet_gateway() {
-    separator
-    echo -e "${YELLOW}Desasociando y eliminando Puerta de Enlace de Internet...${NC}"
-    
-    aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $AWS_REGION > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Puerta de Enlace de Internet desasociada correctamente.${NC}"
-        aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $AWS_REGION > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}Puerta de Enlace de Internet eliminada correctamente.${NC}"
-        else
-            echo -e "${RED}Error al eliminar la Puerta de Enlace de Internet. Verificando puertas de enlace de internet existentes...${NC}"
-            list_resources "describe-internet-gateways" "InternetGateways[*].{ID:InternetGatewayId,Etiqueta:Tags[0].Value}" "Puertas de Enlace de Internet"
-        fi
-    else
-        echo -e "${RED}Error al desasociar la Puerta de Enlace de Internet. Verificando puertas de enlace de internet existentes...${NC}"
-        list_resources "describe-internet-gateways" "InternetGateways[*].{ID:InternetGatewayId,Etiqueta:Tags[0].Value}" "Puertas de Enlace de Internet"
-    fi
-}
-
-# Eliminar Subredes
-function delete_subnets() {
-    separator
-    echo -e "${YELLOW}Eliminando Subredes...${NC}"
-    
-    aws ec2 delete-subnet --subnet-id $SUBNET_PUBLIC_ID --region $AWS_REGION > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Subred Pública '$SUBNET_PUBLIC_ID' eliminada correctamente.${NC}"
-    else
-        echo -e "${RED}Error al eliminar la Subred Pública. Verificando subredes existentes...${NC}"
-        list_resources "describe-subnets" "Subnets[*].{ID:SubnetId,Etiqueta:Tags[0].Value}" "Subredes"
-    fi
-
-    aws ec2 delete-subnet --subnet-id $SUBNET_PRIVATE_ID --region $AWS_REGION > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Subred Privada '$SUBNET_PRIVATE_ID' eliminada correctamente.${NC}"
-    else
-        echo -e "${RED}Error al eliminar la Subred Privada. Verificando subredes existentes...${NC}"
-        list_resources "describe-subnets" "Subnets[*].{ID:SubnetId,Etiqueta:Tags[0].Value}" "Subredes"
-    fi
-}
-
-# Eliminar VPC
-function delete_vpc() {
-    separator
-    echo -e "${YELLOW}Eliminando VPC...${NC}"
-    
-    aws ec2 delete-vpc --vpc-id $VPC_ID --region $AWS_REGION > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}VPC '$VPC_ID' eliminada correctamente.${NC}"
-    else
-        echo -e "${RED}Error al eliminar la VPC. Verificando VPCs existentes...${NC}"
-        list_resources "describe-vpcs" "Vpcs[*].{ID:VpcId,Etiqueta:Tags[0].Value}" "VPCs"
-    fi
-}
-
-# Comienza la ejecución del script
-
-# Verificaciones
-separator
-echo -e "${CYAN}Iniciando el proceso de eliminación de recursos de la VPC...${NC}"
-check_resource_exists "VPC" $VPC_ID "aws ec2 describe-vpcs --vpc-ids $VPC_ID --region $AWS_REGION" "aws ec2 describe-vpcs --query 'Vpcs[*].VpcId' --region $AWS_REGION"
-check_resource_exists "Puerta de Enlace NAT" $NAT_GW_ID "aws ec2 describe-nat-gateways --nat-gateway-ids $NAT_GW_ID --region $AWS_REGION" "aws ec2 describe-nat-gateways --query 'NatGateways[*].NatGatewayId' --region $AWS_REGION"
-check_resource_exists "Puerta de Enlace de Internet" $IGW_ID "aws ec2 describe-internet-gateways --internet-gateway-ids $IGW_ID --region $AWS_REGION" "aws ec2 describe-internet-gateways --query 'InternetGateways[*].InternetGatewayId' --region $AWS_REGION"
-
-# Eliminar recursos en orden
-delete_nat_gateway
-release_elastic_ip
-delete_route
-disassociate_route_table
-delete_route_table
-delete_internet_gateway
-delete_subnets
-delete_vpc
-
-separator
-echo -e "${CYAN}Todos los recursos han sido eliminados.${NC}"
+# Desasociar y eliminar Puerta de Enlace
