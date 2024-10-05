@@ -1,22 +1,14 @@
 #!/bin/bash
 #******************************************************************************
-#    Script de Shell para la Eliminación de una VPC en AWS
+#    Script de Shell para la Eliminación de una VPC en AWS y sus recursos asociados
 #******************************************************************************
 #
 # SINOPSIS
-#    Automatiza la eliminación de una VPC personalizada y sus recursos asociados.
+#    Automatiza la eliminación de una VPC personalizada y todos sus recursos asociados.
 #
 # DESCRIPCIÓN
 #    Este script de shell utiliza la Interfaz de Línea de Comandos de AWS (AWS CLI)
 #    para eliminar automáticamente una VPC personalizada y todos sus recursos.
-#
-#******************************************************************************
-#
-# NOTAS
-#   VERSIÓN:   0.1.0
-#   ÚLTIMA EDICIÓN:  05/10/2024
-#   AUTORES:
-#       - Jorge Luis Pérez Canto (george.jlpc@gmail.com)
 #
 #******************************************************************************
 #
@@ -67,8 +59,6 @@ function delete_resource() {
     fi
 }
 
-# Desasociar y eliminar recursos en orden específico
-
 # Desasociar la Subred Pública de la Tabla de Rutas
 if [ -n "$ASSOC_RT_PUB_ID" ]; then
     delete_resource "route-table-association" $ASSOC_RT_PUB_ID "aws ec2 disassociate-route-table --association-id $ASSOC_RT_PUB_ID --region $AWS_REGION"
@@ -77,7 +67,6 @@ fi
 # Eliminar NAT Gateway
 if [ -n "$NAT_GW_ID" ]; then
     delete_resource "nat-gateway" $NAT_GW_ID "aws ec2 delete-nat-gateway --nat-gateway-id $NAT_GW_ID --region $AWS_REGION"
-    # Esperar a que el estado del NAT Gateway sea 'deleted'
     echo -e "${YELLOW}Esperando a que el NAT Gateway sea eliminado completamente...${NC}"
     aws ec2 wait nat-gateway-available --nat-gateway-ids $NAT_GW_ID --region $AWS_REGION
     echo -e "${GREEN}NAT Gateway ha sido eliminado completamente.${NC}"
@@ -87,6 +76,20 @@ fi
 if [ -n "$EIP_ALLOC_ID" ]; then
     delete_resource "eip" $EIP_ALLOC_ID "aws ec2 release-address --allocation-id $EIP_ALLOC_ID --region $AWS_REGION"
 fi
+
+# Eliminar rutas
+echo -e "${YELLOW}Eliminando rutas de la tabla $ROUTE_TABLE_ID...${NC}"
+aws ec2 describe-route-tables --route-table-id $ROUTE_TABLE_ID --region $AWS_REGION --output text \
+    --query 'RouteTables[].Routes[].[DestinationCidrBlock, RouteTableId]' | \
+    while read DEST RTB; do
+        echo -e "${YELLOW}Eliminando ruta $DEST de $RTB...${NC}"
+        aws ec2 delete-route --route-table-id $RTB --destination-cidr-block $DEST --region $AWS_REGION
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Ruta $DEST eliminada correctamente.${NC}"
+        else
+            echo -e "${RED}Error al eliminar la ruta $DEST.${NC}"
+        fi
+    done
 
 # Eliminar subredes
 delete_resource "subnet" $SUBNET_PUBLIC_ID "aws ec2 delete-subnet --subnet-id $SUBNET_PUBLIC_ID --region $AWS_REGION"
