@@ -2,12 +2,6 @@
 #******************************************************************************
 #    Script de Shell para verificar la existencia de recursos de AWS
 #******************************************************************************
-#
-# DESCRIPCIÓN
-#    Este script verifica si los recursos especificados en 'aws_resources.txt'
-#    aún existen en AWS.
-#
-#******************************************************************************
 
 AWS_REGION="us-east-1"
 RESOURCE_FILE="aws_resources.txt"
@@ -26,10 +20,13 @@ function check_resource() {
 
     if [ "$RESOURCE_ID" != "None" ] && [ -n "$RESOURCE_ID" ]; then
         echo -e "${YELLOW}Verificando ${RESOURCE_TYPE} con ID ${RESOURCE_ID}...${NC}"
-        if eval $AWS_COMMAND; then
-            echo -e "${GREEN}${RESOURCE_TYPE} con ID ${RESOURCE_ID} todavía existe.${NC}"
+        local result=$(eval $AWS_COMMAND 2>&1)
+        if [[ $result == *"does not exist"* ]]; then
+            echo -e "${RED}${RESOURCE_TYPE} con ID ${RESOURCE_ID} no existe.${NC}"
+        elif [[ $result == *"error"* ]]; then
+            echo -e "${RED}Error verificando ${RESOURCE_TYPE} con ID ${RESOURCE_ID}. Detalles: $result${NC}"
         else
-            echo -e "${RED}${RESOURCE_TYPE} con ID ${RESOURCE_ID} no existe o no se pudo verificar.${NC}"
+            echo -e "${GREEN}${RESOURCE_TYPE} con ID ${RESOURCE_ID} todavía existe.${NC}"
         fi
     else
         echo -e "${RED}No hay ID registrado para ${RESOURCE_TYPE}.${NC}"
