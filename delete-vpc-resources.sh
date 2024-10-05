@@ -23,16 +23,6 @@ function separator() {
     echo -e "${CYAN}\n----------------------------------------\n${NC}"
 }
 
-# Mostrar recursos existentes de un tipo
-function list_resources() {
-    RESOURCE_TYPE=$1
-    QUERY=$2
-    DESCRIPTION=$3
-
-    echo -e "${YELLOW}Listando $DESCRIPTION en la región '${AWS_REGION}':${NC}"
-    aws ec2 $RESOURCE_TYPE --query "$QUERY" --output table --region $AWS_REGION || echo -e "${RED}Error al listar $DESCRIPTION.${NC}"
-}
-
 # Verificación de existencia de recursos y listado de recursos si no se encuentra
 function check_resource_exists() {
     RESOURCE_TYPE=$1
@@ -44,12 +34,11 @@ function check_resource_exists() {
     
     if $COMMAND > /dev/null 2>&1; then
         echo -e "${GREEN}$RESOURCE_TYPE '$RESOURCE_ID' encontrado.${NC}"
-        return 0
     else
         echo -e "${RED}$RESOURCE_TYPE '$RESOURCE_ID' NO encontrado.${NC}"
         echo -e "${YELLOW}Listando los $RESOURCE_TYPE disponibles:${NC}"
         $LIST_COMMAND
-        return 1
+        exit 1
     fi
 }
 
@@ -61,8 +50,7 @@ function delete_nat_gateway() {
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Puerta de Enlace NAT '$NAT_GW_ID' eliminada correctamente.${NC}"
     else
-        echo -e "${RED}Error al eliminar la Puerta de Enlace NAT. Verificando las NAT Gateways existentes...${NC}"
-        list_resources "describe-nat-gateways" "NatGateways[*].{ID:NatGatewayId,Etiqueta:Tags[0].Value}" "NAT Gateways"
+        echo -e "${RED}Error al eliminar la Puerta de Enlace NAT. Verifica si aún está asociada a otras dependencias.${NC}"
     fi
 }
 
@@ -74,8 +62,7 @@ function release_elastic_ip() {
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Dirección IP Elástica '$EIP_ALLOC_ID' liberada correctamente.${NC}"
     else
-        echo -e "${RED}Error al liberar la Dirección IP Elástica. Verificando las IPs elásticas existentes...${NC}"
-        list_resources "describe-addresses" "Addresses[*].{ID:AllocationId,Etiqueta:Tags[0].Value}" "IPs Elásticas"
+        echo -e "${RED}Error al liberar la Dirección IP Elástica. Asegúrate de que no esté en uso por una NAT Gateway o una instancia EC2.${NC}"
     fi
 }
 
@@ -87,8 +74,8 @@ function delete_route() {
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Ruta a NAT Gateway eliminada correctamente.${NC}"
     else
-        echo -e "${RED}No se encontró la ruta o error al eliminarla. Verificando las rutas existentes...${NC}"
-        list_resources "describe-route-tables" "RouteTables[*].{ID:RouteTableId,Route:Routes[*].DestinationCidrBlock}" "Tablas de Rutas"
+        echo -e "${RED}No se encontró la ruta o error al eliminarla. Verifica que la ruta realmente exista o intenta verificar las rutas con el siguiente comando:${NC}"
+        echo -e "${CYAN}aws ec2 describe-route-tables --route-table-ids $MAIN_ROUTE_TABLE_ID --region $AWS_REGION${NC}"
     fi
 }
 
@@ -103,12 +90,12 @@ function disassociate_route_table() {
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}Tabla de Rutas desasociada correctamente.${NC}"
         else
-            echo -e "${RED}Error al desasociar la Tabla de Rutas. Verificando asociaciones de tablas de rutas existentes...${NC}"
-            list_resources "describe-route-tables" "RouteTables[*].{ID:RouteTableId,Asociaciones:Associations[*].RouteTableAssociationId}" "Asociaciones de Tablas de Rutas"
+            echo -e "${RED}Error al desasociar la Tabla de Rutas. Verifica si la tabla está en uso.${NC}"
         fi
     else
-        echo -e "${RED}No se encontró una asociación de tabla de rutas. Verificando asociaciones de tablas de rutas existentes...${NC}"
-        list_resources "describe-route-tables" "RouteTables[*].{ID:RouteTableId,Asociaciones:Associations[*].RouteTableAssociationId}" "Asociaciones de Tablas de Rutas"
+        echo -e "${RED}No se encontró una asociación de tabla de rutas.${NC}"
+        echo -e "${YELLOW}Listando asociaciones de tablas de rutas disponibles:${NC}"
+        aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID" --query "RouteTables[*].Associations" --region $AWS_REGION
     fi
 }
 
@@ -120,9 +107,80 @@ function delete_route_table() {
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Tabla de Rutas '$ROUTE_TABLE_ID' eliminada correctamente.${NC}"
     else
-        echo -e "${RED}Error al eliminar la Tabla de Rutas. Verificando tablas de rutas existentes...${NC}"
-        list_resources "describe-route-tables" "RouteTables[*].{ID:RouteTableId,Etiqueta:Tags[0].Value}" "Tablas de Rutas"
+        echo -e "${RED}Error al eliminar la Tabla de Rutas. Puede haber rutas activas o dependencias que impidan la eliminación.${NC}"
     fi
 }
 
-# Desasociar y eliminar Puerta de Enlace
+# Desasociar y eliminar Puerta de Enlace de Internet
+function delete_internet_gateway() {
+    separator
+    echo -e "${YELLOW}Desasociando y eliminando Puerta de Enlace de Internet...${NC}"
+    
+    aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $AWS_REGION > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Puerta de Enlace de Internet desasociada correctamente.${NC}"
+        aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $AWS_REGION > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Puerta de Enlace de Internet eliminada correctamente.${NC}"
+        else
+            echo -e "${RED}Error al eliminar la Puerta de Enlace de Internet. Verifica si aún tiene dependencias activas, como direcciones IP públicas.${NC}"
+        fi
+    else
+        echo -e "${RED}Error al desasociar la Puerta de Enlace de Internet. Verifica si tiene IPs públicas asignadas o está en uso por una instancia EC2.${NC}"
+    fi
+}
+
+# Eliminar Subredes
+function delete_subnets() {
+    separator
+    echo -e "${YELLOW}Eliminando Subredes...${NC}"
+    
+    aws ec2 delete-subnet --subnet-id $SUBNET_PUBLIC_ID --region $AWS_REGION > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Subred Pública '$SUBNET_PUBLIC_ID' eliminada correctamente.${NC}"
+    else
+        echo -e "${RED}Error al eliminar la Subred Pública. Puede estar en uso por una instancia EC2 o un recurso asociado.${NC}"
+    fi
+
+    aws ec2 delete-subnet --subnet-id $SUBNET_PRIVATE_ID --region $AWS_REGION > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Subred Privada '$SUBNET_PRIVATE_ID' eliminada correctamente.${NC}"
+    else
+        echo -e "${RED}Error al eliminar la Subred Privada. Puede estar en uso por una instancia EC2 o un recurso asociado.${NC}"
+    fi
+}
+
+# Eliminar VPC
+function delete_vpc() {
+    separator
+    echo -e "${YELLOW}Eliminando VPC...${NC}"
+    
+    aws ec2 delete-vpc --vpc-id $VPC_ID --region $AWS_REGION > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}VPC '$VPC_ID' eliminada correctamente.${NC}"
+    else
+        echo -e "${RED}Error al eliminar la VPC. Verifica si aún tiene recursos asociados como subredes, tablas de rutas o puertas de enlace.${NC}"
+    fi
+}
+
+# Comienza la ejecución del script
+
+# Verificaciones
+separator
+echo -e "${CYAN}Iniciando el proceso de eliminación de recursos de la VPC...${NC}"
+check_resource_exists "VPC" $VPC_ID "aws ec2 describe-vpcs --vpc-ids $VPC_ID --region $AWS_REGION" "aws ec2 describe-vpcs --query 'Vpcs[*].VpcId' --region $AWS_REGION"
+check_resource_exists "Puerta de Enlace NAT" $NAT_GW_ID "aws ec2 describe-nat-gateways --nat-gateway-ids $NAT_GW_ID --region $AWS_REGION" "aws ec2 describe-nat-gateways --query 'NatGateways[*].NatGatewayId' --region $AWS_REGION"
+check_resource_exists "Puerta de Enlace de Internet" $IGW_ID "aws ec2 describe-internet-gateways --internet-gateway-ids $IGW_ID --region $AWS_REGION" "aws ec2 describe-internet-gateways --query 'InternetGateways[*].InternetGatewayId' --region $AWS_REGION"
+
+# Eliminar recursos en orden
+delete_nat_gateway
+release_elastic_ip
+delete_route
+disassociate_route_table
+delete_route_table
+delete_internet_gateway
+delete_subnets
+delete_vpc
+
+separator
+echo -e "${CYAN}Todos los recursos han sido eliminados.${NC}"
