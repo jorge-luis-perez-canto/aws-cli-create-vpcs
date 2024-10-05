@@ -34,7 +34,7 @@ function check_resource() {
     else
         echo -e "${RED}No hay ID registrado para ${RESOURCE_TYPE}.${NC}"
     fi
-    echo -e "\n"  # Añade una línea en blanco para separar las verificaciones
+    echo -e ""  # Añade una línea en blanco para separar las verificaciones
 }
 
 # Leer y verificar cada recurso del archivo
