@@ -20,13 +20,16 @@ function check_resource() {
 
     if [ "$RESOURCE_ID" != "None" ] && [ -n "$RESOURCE_ID" ]; then
         echo -e "${YELLOW}Verificando ${RESOURCE_TYPE} con ID ${RESOURCE_ID}...${NC}"
-        local result=$(eval $AWS_COMMAND 2>&1)
-        if [[ $result == *"does not exist"* ]]; then
-            echo -e "${RED}${RESOURCE_TYPE} con ID ${RESOURCE_ID} no existe.${NC}"
-        elif [[ $result == *"error"* ]]; then
-            echo -e "${RED}Error verificando ${RESOURCE_TYPE} con ID ${RESOURCE_ID}. Detalles: $result${NC}"
-        else
+        
+        # Ejecutar el comando con redirección de stderr a /dev/null para suprimir mensajes de error directos
+        eval $AWS_COMMAND 2>/dev/null
+        local status=$?
+        
+        # Verificar el estado de salida del comando para determinar si el recurso existe o no
+        if [ $status -eq 0 ]; then
             echo -e "${GREEN}${RESOURCE_TYPE} con ID ${RESOURCE_ID} todavía existe.${NC}"
+        else
+            echo -e "${RED}${RESOURCE_TYPE} con ID ${RESOURCE_ID} no existe o no se pudo verificar.${NC}"
         fi
     else
         echo -e "${RED}No hay ID registrado para ${RESOURCE_TYPE}.${NC}"
