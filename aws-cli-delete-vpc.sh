@@ -13,14 +13,6 @@
 #    desasociando, desconectando y eliminando en el orden adecuado.
 #
 #******************************************************************************
-#
-# NOTAS
-#   VERSIÓN:   1.0.2
-#   ÚLTIMA EDICIÓN:  05/10/2024
-#   AUTORES:
-#       - Jorge Luis Pérez Canto (george.jlpc@gmail.com)
-#
-#******************************************************************************
 
 # Configuraciones iniciales
 AWS_REGION="us-east-1"
@@ -105,7 +97,6 @@ if [ -n "$SUBNET_PUBLIC_ID" ]; then
     delete_resource "Subred Pública" $SUBNET_PUBLIC_ID "aws ec2 delete-subnet --subnet-id $SUBNET_PUBLIC_ID --region $AWS_REGION"
 fi
 
-
 # Liberar la Dirección IP Elástica
 if [ -n "$EIP_ALLOC_ID" ]; then
     delete_resource "Elastic IP" $EIP_ALLOC_ID "aws ec2 release-address --allocation-id $EIP_ALLOC_ID --region $AWS_REGION"
@@ -124,29 +115,20 @@ if [ -n "$NAT_GW_ID" ]; then
     fi
 fi
 
-# Eliminar Tablas de Enrutamiento
-if [ -n "$ROUTE_TABLE_PRIVATE_ID" ]; then
-    delete_resource "Tabla de Rutas Privada" $ROUTE_TABLE_PRIVATE_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_PRIVATE_ID --region $AWS_REGION"
+# Paso importante: Desconectar y eliminar el Internet Gateway
+if [ -n "$IGW_ID" ]; then
+    echo -e "${YELLOW}Desconectando el Internet Gateway de la VPC...${NC}"
+    aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $AWS_REGION
+    echo -e "${YELLOW}Eliminando el Internet Gateway...${NC}"
+    delete_resource "Internet Gateway" $IGW_ID "aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $AWS_REGION"
 fi
 
-if [ -n "$ROUTE_TABLE_PUBLIC_ID" ]; then
-    delete_resource "Tabla de Rutas Pública" $ROUTE_TABLE_PUBLIC_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_PUBLIC_ID --region $AWS_REGION"
+# No intentar eliminar la tabla de rutas principal (no se puede eliminar)
+echo -e "${YELLOW}La tabla de rutas principal no se puede eliminar.${NC}"
+
+# Eliminar la VPC
+if [ -n "$VPC_ID" ]; then
+    delete_resource "VPC" $VPC_ID "aws ec2 delete-vpc --vpc-id $VPC_ID --region $AWS_REGION"
 fi
 
-
-
-# ------------------
-
-# Desasociar y eliminar Internet Gateway
-aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $AWS_REGION
-delete_resource "Internet Gateway" $IGW_ID "aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $AWS_REGION"
-
-# Eliminar Tabla de Rutas Principal
-delete_resource "Tabla de Rutas Principal" $MAIN_ROUTE_TABLE_ID "aws ec2 delete-route-table --route-table-id $MAIN_ROUTE_TABLE_ID --region $AWS_REGION"
-
-# Eliminar Tabla de Rutas
-delete_resource "Tabla de Rutas" $ROUTE_TABLE_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_ID --region $AWS_REGION"
-
-# Eliminar VPC
-delete_resource "VPC" $VPC_ID "aws ec2 delete-vpc --vpc-id $VPC_ID --region $AWS_REGION"
 echo -e "${GREEN}Todos los recursos han sido eliminados exitosamente.${NC}"
