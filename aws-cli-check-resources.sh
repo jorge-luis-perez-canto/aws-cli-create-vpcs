@@ -59,13 +59,13 @@ while IFS=": " read -r key value; do
 done < "$RESOURCE_FILE"
 
 # Mostrar resumen al final
-echo -e "${GREEN}Recursos que aún existen:${NC}"
+echo -e "${YELLOW}Recursos que aún existen:${NC}"
 for item in "${still_exists[@]}"; do
     echo -e "${GREEN}$item${NC}"
 done
 
 echo -e "\n"
-echo -e "${RED}Recursos que no existen o no se pudieron verificar:${NC}"
+echo -e "${NC}Recursos que no existen o no se pudieron verificar:${NC}"
 for item in "${not_exists[@]}"; do
     echo -e "${RED}$item${NC}"
 done
