@@ -64,6 +64,7 @@ for item in "${still_exists[@]}"; do
     echo -e "${GREEN}$item${NC}"
 done
 
+echo -e "\n"
 echo -e "${RED}Recursos que no existen o no se pudieron verificar:${NC}"
 for item in "${not_exists[@]}"; do
     echo -e "${RED}$item${NC}"
