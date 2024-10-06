@@ -1,16 +1,24 @@
 #!/bin/bash
 #******************************************************************************
-#    Script para la Eliminación de Todos los Recursos Creados
+#    Script Mejorado para la Eliminación Segura de una VPC en AWS
 #******************************************************************************
 #
 # SINOPSIS
-#    Este script elimina todos los recursos creados por el script de creación de la VPC,
-#    desasociando, desconectando y eliminando en el orden adecuado para evitar problemas
-#    con dependencias no eliminadas.
+#    Automatiza la eliminación de una VPC personalizada y sus recursos asociados,
+#    siguiendo las instrucciones específicas para asegurar que no queden costos.
 #
 # DESCRIPCIÓN
-#    Elimina automáticamente la VPC, subredes, Internet Gateway, NAT Gateway, tablas
-#    de rutas, direcciones IP elásticas, y cualquier otro recurso relacionado.
+#    Este script de shell utiliza la Interfaz de Línea de Comandos de AWS (AWS CLI)
+#    para eliminar automáticamente una VPC personalizada y todos sus recursos,
+#    desasociando, desconectando y eliminando en el orden adecuado.
+#
+#******************************************************************************
+#
+# NOTAS
+#   VERSIÓN:   1.0.2
+#   ÚLTIMA EDICIÓN:  05/10/2024
+#   AUTORES:
+#       - Jorge Luis Pérez Canto (george.jlpc@gmail.com)
 #
 #******************************************************************************
 
@@ -65,8 +73,10 @@ VPC_ID=$(read_resource_id "VPC_ID")
 SUBNET_PUBLIC_ID=$(read_resource_id "SUBNET_PUBLIC_ID")
 SUBNET_PRIVATE_ID=$(read_resource_id "SUBNET_PRIVATE_ID")
 IGW_ID=$(read_resource_id "IGW_ID")
-ROUTE_TABLE_ID=$(read_resource_id "ROUTE_TABLE_ID")
+ROUTE_TABLE_PUBLIC_ID=$(read_resource_id "ROUTE_TABLE_PUBLIC_ID")
+ROUTE_TABLE_PRIVATE_ID=$(read_resource_id "ROUTE_TABLE_PRIVATE_ID")
 ASSOC_RT_PUB_ID=$(read_resource_id "ASSOC_RT_PUB_ID")
+ASSOC_RT_PRIV_ID=$(read_resource_id "ASSOC_RT_PRIV_ID")
 EIP_ALLOC_ID=$(read_resource_id "EIP_ALLOC_ID")
 NAT_GW_ID=$(read_resource_id "NAT_GW_ID")
 MAIN_ROUTE_TABLE_ID=$(read_resource_id "MAIN_ROUTE_TABLE_ID")
@@ -79,6 +89,11 @@ MAIN_ROUTE_TABLE_ID=$(read_resource_id "MAIN_ROUTE_TABLE_ID")
 if [ -n "$ASSOC_RT_PUB_ID" ]; then
     echo -e "${YELLOW}Desasociando subred pública de la tabla de enrutamiento...${NC}"
     delete_resource "Asociación de Tabla de Rutas Pública" $ASSOC_RT_PUB_ID "aws ec2 disassociate-route-table --association-id $ASSOC_RT_PUB_ID --region $AWS_REGION"
+fi
+
+if [ -n "$ASSOC_RT_PRIV_ID" ]; then
+    echo -e "${YELLOW}Desasociando subred privada de la tabla de enrutamiento...${NC}"
+    delete_resource "Asociación de Tabla de Rutas Privada" $ASSOC_RT_PRIV_ID "aws ec2 disassociate-route-table --association-id $ASSOC_RT_PRIV_ID --region $AWS_REGION"
 fi
 
 # Paso 2: Eliminar el NAT Gateway
@@ -100,8 +115,12 @@ if [ -n "$EIP_ALLOC_ID" ]; then
 fi
 
 # Paso 4: Eliminar Tablas de Enrutamiento
-if [ -n "$ROUTE_TABLE_ID" ]; then
-    delete_resource "Tabla de Rutas" $ROUTE_TABLE_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_ID --region $AWS_REGION"
+if [ -n "$ROUTE_TABLE_PRIVATE_ID" ]; then
+    delete_resource "Tabla de Rutas Privada" $ROUTE_TABLE_PRIVATE_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_PRIVATE_ID --region $AWS_REGION"
+fi
+
+if [ -n "$ROUTE_TABLE_PUBLIC_ID" ]; then
+    delete_resource "Tabla de Rutas Pública" $ROUTE_TABLE_PUBLIC_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_PUBLIC_ID --region $AWS_REGION"
 fi
 
 # Paso 5: Desasociar y Eliminar el Internet Gateway
