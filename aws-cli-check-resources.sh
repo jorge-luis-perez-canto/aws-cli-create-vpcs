@@ -1,7 +1,5 @@
 #!/bin/bash
 #******************************************************************************
-#    Script de Shell para verificar la existencia de recursos de AWS
-#******************************************************************************
 
 AWS_REGION="us-east-1"
 RESOURCE_FILE="aws_resources.txt"
@@ -20,12 +18,8 @@ function check_resource() {
 
     if [ "$RESOURCE_ID" != "None" ] && [ -n "$RESOURCE_ID" ]; then
         echo -e "${YELLOW}Verificando ${RESOURCE_TYPE} con ID ${RESOURCE_ID}...${NC}"
-        
-        # Ejecutar el comando con redirección de stderr a /dev/null para suprimir mensajes de error directos
         eval $AWS_COMMAND 2>/dev/null
         local status=$?
-        
-        # Verificar el estado de salida del comando para determinar si el recurso existe o no
         if [ $status -eq 0 ]; then
             echo -e "${GREEN}${RESOURCE_TYPE} con ID ${RESOURCE_ID} todavía existe.${NC}"
         else
@@ -34,11 +28,12 @@ function check_resource() {
     else
         echo -e "${RED}No hay ID registrado para ${RESOURCE_TYPE}.${NC}"
     fi
-    echo -e ""  # Añade una línea en blanco para separar las verificaciones
+    echo ""  # Añade solo una línea en blanco
 }
 
 # Leer y verificar cada recurso del archivo
 while IFS=": " read -r key value; do
+    echo ""  # Asegura que solo hay un salto de línea antes de cada verificación
     case "$key" in
         VPC_ID) check_resource "VPC" "$value" "aws ec2 describe-vpcs --vpc-ids $value --region $AWS_REGION" ;;
         SUBNET_PUBLIC_ID) check_resource "Subred Pública" "$value" "aws ec2 describe-subnets --subnet-ids $value --region $AWS_REGION" ;;
