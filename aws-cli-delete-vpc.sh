@@ -85,7 +85,7 @@ MAIN_ROUTE_TABLE_ID=$(read_resource_id "MAIN_ROUTE_TABLE_ID")
 # Proceso de eliminación en pasos
 #******************************************************************************
 
-# Paso 1: Desasociar Subredes de las Tablas de Enrutamiento
+# Desasociar Subredes de las Tablas de Enrutamiento
 if [ -n "$ASSOC_RT_PUB_ID" ]; then
     echo -e "${YELLOW}Desasociando subred pública de la tabla de enrutamiento...${NC}"
     delete_resource "Asociación de Tabla de Rutas Pública" $ASSOC_RT_PUB_ID "aws ec2 disassociate-route-table --association-id $ASSOC_RT_PUB_ID --region $AWS_REGION"
@@ -96,7 +96,22 @@ if [ -n "$ASSOC_RT_PRIV_ID" ]; then
     delete_resource "Asociación de Tabla de Rutas Privada" $ASSOC_RT_PRIV_ID "aws ec2 disassociate-route-table --association-id $ASSOC_RT_PRIV_ID --region $AWS_REGION"
 fi
 
-# Paso 2: Eliminar el NAT Gateway
+# Eliminar Subredes
+if [ -n "$SUBNET_PRIVATE_ID" ]; then
+    delete_resource "Subred Privada" $SUBNET_PRIVATE_ID "aws ec2 delete-subnet --subnet-id $SUBNET_PRIVATE_ID --region $AWS_REGION"
+fi
+
+if [ -n "$SUBNET_PUBLIC_ID" ]; then
+    delete_resource "Subred Pública" $SUBNET_PUBLIC_ID "aws ec2 delete-subnet --subnet-id $SUBNET_PUBLIC_ID --region $AWS_REGION"
+fi
+
+
+# Liberar la Dirección IP Elástica
+if [ -n "$EIP_ALLOC_ID" ]; then
+    delete_resource "Elastic IP" $EIP_ALLOC_ID "aws ec2 release-address --allocation-id $EIP_ALLOC_ID --region $AWS_REGION"
+fi
+
+# Eliminar el NAT Gateway
 if [ -n "$NAT_GW_ID" ]; then
     delete_resource "NAT Gateway" $NAT_GW_ID "aws ec2 delete-nat-gateway --nat-gateway-id $NAT_GW_ID --region $AWS_REGION"
     # Verificar si el NAT Gateway aún existe antes de esperar
@@ -109,12 +124,7 @@ if [ -n "$NAT_GW_ID" ]; then
     fi
 fi
 
-# Paso 3: Liberar la Dirección IP Elástica
-if [ -n "$EIP_ALLOC_ID" ]; then
-    delete_resource "Elastic IP" $EIP_ALLOC_ID "aws ec2 release-address --allocation-id $EIP_ALLOC_ID --region $AWS_REGION"
-fi
-
-# Paso 4: Eliminar Tablas de Enrutamiento
+# Eliminar Tablas de Enrutamiento
 if [ -n "$ROUTE_TABLE_PRIVATE_ID" ]; then
     delete_resource "Tabla de Rutas Privada" $ROUTE_TABLE_PRIVATE_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_PRIVATE_ID --region $AWS_REGION"
 fi
@@ -123,27 +133,20 @@ if [ -n "$ROUTE_TABLE_PUBLIC_ID" ]; then
     delete_resource "Tabla de Rutas Pública" $ROUTE_TABLE_PUBLIC_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_PUBLIC_ID --region $AWS_REGION"
 fi
 
-# Paso 5: Desasociar y Eliminar el Internet Gateway
-if [ -n "$IGW_ID" ]; then
-    echo -e "${YELLOW}Desasociando el Internet Gateway...${NC}"
-    delete_resource "Internet Gateway" $IGW_ID "aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $AWS_REGION"
-    
-    echo -e "${YELLOW}Eliminando el Internet Gateway...${NC}"
-    delete_resource "Internet Gateway" $IGW_ID "aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $AWS_REGION"
-fi
 
-# Paso 6: Eliminar Subredes
-if [ -n "$SUBNET_PRIVATE_ID" ]; then
-    delete_resource "Subred Privada" $SUBNET_PRIVATE_ID "aws ec2 delete-subnet --subnet-id $SUBNET_PRIVATE_ID --region $AWS_REGION"
-fi
 
-if [ -n "$SUBNET_PUBLIC_ID" ]; then
-    delete_resource "Subred Pública" $SUBNET_PUBLIC_ID "aws ec2 delete-subnet --subnet-id $SUBNET_PUBLIC_ID --region $AWS_REGION"
-fi
+# ------------------
 
-# Paso 7: Eliminar la VPC
-if [ -n "$VPC_ID" ]; then
-    delete_resource "VPC" $VPC_ID "aws ec2 delete-vpc --vpc-id $VPC_ID --region $AWS_REGION"
-fi
+# Desasociar y eliminar Internet Gateway
+aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $AWS_REGION
+delete_resource "Internet Gateway" $IGW_ID "aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $AWS_REGION"
 
+# Eliminar Tabla de Rutas Principal
+delete_resource "Tabla de Rutas Principal" $MAIN_ROUTE_TABLE_ID "aws ec2 delete-route-table --route-table-id $MAIN_ROUTE_TABLE_ID --region $AWS_REGION"
+
+# Eliminar Tabla de Rutas
+delete_resource "Tabla de Rutas" $ROUTE_TABLE_ID "aws ec2 delete-route-table --route-table-id $ROUTE_TABLE_ID --region $AWS_REGION"
+
+# Eliminar VPC
+delete_resource "VPC" $VPC_ID "aws ec2 delete-vpc --vpc-id $VPC_ID --region $AWS_REGION"
 echo -e "${GREEN}Todos los recursos han sido eliminados exitosamente.${NC}"
